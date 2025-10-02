@@ -120,28 +120,30 @@ function normalize(str: string) {
 }
 
 async function checkAnswer(answer: string) {
-  if (!activeHead.value) return
+  // take a snapshot BEFORE touching activeHead
+  const current = activeHead.value
+  if (!current) return
 
   const userAns = normalize(answer)
-  const ok = activeHead.value.answers.some(a => normalize(a) === userAns)
-
-  if (!ok) { 
+  const ok = current.answers.some(a => normalize(a) === userAns)
+  if (!ok) {
     alert('Wrong answer — try again!')
-    return 
+    return
   }
 
-  // ✅ close modal immediately
-  const head = activeHead.value
+  // close modal immediately
   activeHead.value = null
 
-  head.state = 'burning'
+  // burn → gone sequence on the captured head
+  current.state = 'burning'
   await new Promise(r => setTimeout(r, 1100))
-  head.state = 'gone'
+  current.state = 'gone'
 
   if (heads.every(h => h.state === 'gone')) {
     showGreeting.value = true
   }
 }
+
 
 function styleFor(h: HeadObj) {
   const baseOverlap = -72
