@@ -149,22 +149,27 @@ async function checkAnswer(answer: string) {
 
 <style scoped>
 /* Container */
+/* --- Global dark background --- */
+:root { color-scheme: dark; }
+html, body { background: #000; margin: 0; }
+
+/* Container */
 .wrap { 
   width: min(1100px, 96vw); 
   margin: 1rem auto 2rem; 
   position: relative;
+  background: #000; /* keep wrap black */
 }
 
 /* Rules panel */
 .rules {
   background: #1e1e1e;   /* dark background */
-  color: #f0f0f0;        /* light text for contrast */
+  color: #f0f0f0;        /* light text */
   border: 1px solid #333;
   border-radius: 10px;
   padding: 0.75rem 1rem;
   margin-bottom: 0.75rem;
 }
-
 .rules h2 {
   font-size: 1rem; margin: 0 0 0.25rem; font-weight: 700;
 }
@@ -173,14 +178,14 @@ async function checkAnswer(answer: string) {
 }
 .rules .status { margin: 0; font-size: 0.9rem; opacity: 0.85; }
 
-/* ✅ Flat, side-by-side single row (scrolls on small screens) */
+/* ✅ Flat, side-by-side single row */
 .row { 
   display: flex; 
   align-items: center;
   gap: clamp(10px, 2vw, 18px);
-  overflow-x: auto;
   padding: 0.75rem 0.25rem;
   scroll-snap-type: x proximity;
+  background: #000;
 }
 .row.blocked { pointer-events: none; }
 
@@ -212,7 +217,7 @@ async function checkAnswer(answer: string) {
   z-index: 2;
 }
 
-/* Image + subtle visual polish */
+/* Image */
 .head-img { 
   width: 100%; height: 100%; object-fit: contain; display: block; 
   filter: drop-shadow(0 4px 10px rgba(0,0,0,.18));
@@ -236,7 +241,7 @@ async function checkAnswer(answer: string) {
           clip-path: ellipse(52% 54% at 50% 50%);
 }
 
-/* Hover lift on larger screens */
+/* Hover (only desktops) */
 @media (hover:hover) and (pointer:fine) {
   .head:hover:not(.disabled):not(.gone):not(.burning) .imgwrap {
     transform: translateY(-2px);
@@ -265,6 +270,7 @@ async function checkAnswer(answer: string) {
 /* States */
 .head.gone { visibility: hidden; }
 .head.disabled { cursor: not-allowed; }
+.head.special.disabled .imgwrap { filter: grayscale(0.8) opacity(0.7); }
 
 /* Greeting overlay */
 .greeting {
@@ -274,22 +280,56 @@ async function checkAnswer(answer: string) {
   z-index: 2000;
 }
 .greeting img {
+  opacity: 0;
+  transform: scale(0.92) translateY(8px);
+  animation: pop-in 850ms cubic-bezier(.2,.9,.2,1) 60ms forwards,
+             glow 1800ms ease-in-out 900ms infinite alternate;
   max-width: 90vw; max-height: 85vh;
   border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+@keyframes pop-in {
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes glow {
+  from { box-shadow: 0 18px 50px rgba(255,215,0,0.20); }
+  to   { box-shadow: 0 22px 68px rgba(255,215,0,0.35); }
 }
 
-/* ✅ Mobile sizes */
-@media (max-width: 768px) {
-  .wrap { width: 100%; padding: 0 0.25rem; }
-  .row { gap: 10px; }
-  .head { width: clamp(52px, 14vw, 88px); }
-}
+/* 📱 Mobile: 4 heads top, 5th centered middle, 5 heads bottom */
 @media (max-width: 480px) {
-  .head { width: clamp(48px, 16vw, 76px); }
-  .greeting img { max-width: 95vw; max-height: 80vh; }
+  .row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* 5 equal columns */
+    gap: 6px;
+    padding: 8px 10px;
+    justify-items: center;
+    align-items: center;
+    overflow: hidden;       /* no horizontal scroll */
+    background: #000;       /* keep full black */
+  }
+
+  /* Each cell is a square; head fills its grid cell */
+  .head {
+    width: 100%;
+    max-width: 72px;        /* optional safety cap */
+    aspect-ratio: 1 / 1;
+  }
+
+  /* Top row: heads 1–4 (columns 1–4), leave column 5 empty */
+  .head:nth-child(-n+4) { grid-row: 1; }
+
+  /* Middle row: head 5 centered in column 3 */
+  .head:nth-child(5) { grid-row: 2; grid-column: 3; }
+
+  /* Bottom row: heads 6–10 auto-flow into row 3, columns 1–5 */
+  .head:nth-child(n+6) { grid-row: 3; }
+
+  /* Compact badge for tight grid */
+  .badge {
+    min-width: 20px; height: 20px; font-size: 11px;
+    top: -4px; left: -4px;
+  }
 }
-@media (max-width: 360px) {
-  .head { width: clamp(44px, 18vw, 68px); }
-}
+
+
 </style>

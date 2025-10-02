@@ -13,4 +13,13 @@ import Ravana from './components/Ravana.vue'
 body { margin:0; font-family: Inter, system-ui, sans-serif; background: #111; color: #fff; }
 .app { padding: 2rem; text-align: center; }
 h1 { margin-bottom: 1.5rem; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #000 !important;
+  color: #fff;
+  min-height: 100%;
+  width: 100%;
+}
 </style>
