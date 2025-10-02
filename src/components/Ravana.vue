@@ -1,5 +1,18 @@
 <template>
   <div class="wrap">
+    <!-- Rules panel -->
+    <section class="rules" aria-labelledby="rules-title">
+      <h2 id="rules-title">Rules</h2>
+      <ol>
+        <li>Tap a head to answer a question. Correct answers burn the head.</li>
+        <li>Burn all heads <strong>except the 5th</strong> first.</li>
+        <li>Only after the other 9 are gone, the <strong>5th head</strong> will unlock.</li>
+      </ol>
+      <p class="status" aria-live="polite">
+        Remaining (excluding 5th): {{ remainingExceptSpecial }}
+      </p>
+    </section>
+
     <div class="row" :class="{ blocked: !!activeHead }" :inert="!!activeHead">
       <button
         v-for="h in heads"
@@ -7,14 +20,16 @@
         class="head"
         :class="[
           h.state,
-          { center: h.id === centerId, disabled: isDisabled(h) }
+          { special: h.id === specialId, disabled: isDisabled(h) }
         ]"
-        :style="styleFor(h)"
-        :aria-label="h.name"
+        :aria-label="`${h.name} (No. ${h.id})`"
         :disabled="isDisabled(h)"
         @click="onClickHead(h)"
       >
-        <span class="imgwrap" :class="{ selected: h.id===centerId && h.state==='intact' }">
+        <!-- Number badge -->
+        <span class="badge" :aria-hidden="true">{{ h.id }}</span>
+
+        <span class="imgwrap" :class="{ selected: h.id===specialId && h.state==='intact' }">
           <img class="head-img" src="/src/assets/ravana.png" alt="" />
         </span>
         <span v-if="h.state==='burning'" class="flame"></span>
@@ -46,26 +61,9 @@ interface HeadObj {
   question: string
   answers: string[]
   state: HeadState
-  translateY: number
-  scale: number
-  z: number
 }
 
-const centerId = 6
-
-// Layout for arc effect
-const layout = [
-  { y: 25, s: 0.68, z: 1 },
-  { y: 18, s: 0.75, z: 2 },
-  { y: 12, s: 0.82, z: 3 },
-  { y: 6,  s: 0.90, z: 4 },
-  { y: 2,  s: 0.96, z: 5 },
-  { y: 0,  s: 1.15, z: 10 }, // CENTER
-  { y: 2,  s: 0.96, z: 5 },
-  { y: 6,  s: 0.90, z: 4 },
-  { y: 12, s: 0.82, z: 3 },
-  { y: 18, s: 0.75, z: 2 },
-]
+const specialId = 5 // 🔒 5th Ravana unlocks only after others are gone
 
 // Questions + multiple valid answers
 const qa: Array<[string, string[]]> = [
@@ -81,7 +79,6 @@ const qa: Array<[string, string[]]> = [
   ['What was the name of Lord Rama’s kingdom?', ['ayodhya']],
 ];
 
-
 const heads = reactive<HeadObj[]>(
   Array.from({ length: 10 }, (_, i) => {
     const q = qa[i] ?? ['No question', []];
@@ -91,9 +88,6 @@ const heads = reactive<HeadObj[]>(
       question: q[0],
       answers: q[1],
       state: 'intact' as HeadState,
-      translateY: layout[i]?.y ?? 0,
-      scale: layout[i]?.s ?? 1,
-      z: i === 5 ? 100 : 50 - Math.abs(5 - i),
     }
   })
 )
@@ -101,12 +95,20 @@ const heads = reactive<HeadObj[]>(
 const activeHead = ref<HeadObj | null>(null)
 const showGreeting = ref(false)
 
+// Are all *other* heads gone (excluding the special one)?
 const othersAllGone = computed(() =>
-  heads.filter(h => h.id !== centerId).every(h => h.state === 'gone')
+  heads.filter(h => h.id !== specialId).every(h => h.state === 'gone')
+)
+
+// For UI: how many remaining except the special head
+const remainingExceptSpecial = computed(() =>
+  heads.filter(h => h.id !== specialId && h.state !== 'gone').length
 )
 
 function isDisabled(h: HeadObj) {
-  if (h.id === centerId) return !othersAllGone.value || h.state !== 'intact'
+  // Special 5th head: only enabled when all others are gone and it's still intact
+  if (h.id === specialId) return !othersAllGone.value || h.state !== 'intact'
+  // All other heads: disabled if not intact
   return h.state !== 'intact'
 }
 
@@ -118,13 +120,11 @@ function onClickHead(h: HeadObj) {
 function closeModal() { activeHead.value = null }
 
 // Normalize input: lowercase, trim, remove punctuation/spaces
-// Normalize input: lowercase, trim, strip spaces/punct
 function normalize(str: string) {
   return str.toLowerCase().trim().replace(/[^a-z0-9]/g, '')
 }
 
 async function checkAnswer(answer: string) {
-  // capture once and narrow
   const h = activeHead.value as HeadObj | null
   if (h === null) return
 
@@ -135,70 +135,115 @@ async function checkAnswer(answer: string) {
     return
   }
 
-  // close modal immediately
   activeHead.value = null
-
-  // burn → gone using the captured, non-null head
   h.state = 'burning'
   await new Promise(r => setTimeout(r, 1100))
   h.state = 'gone'
 
+  // When all 10 are gone, show final greeting
   if (heads.every(x => x.state === 'gone')) {
     showGreeting.value = true
   }
 }
-
-
-
-function styleFor(h: HeadObj) {
-  const baseOverlap = -72
-  const ml = `${baseOverlap * h.scale}px`
-  return {
-    '--y': `${h.translateY}px`,
-    '--s': h.scale,
-    '--z': h.z,
-    marginLeft: h.id === 1 ? '0px' : ml,
-  } as any
-}
 </script>
 
 <style scoped>
-.wrap { width: min(1100px, 96vw); margin: 1rem auto 2rem; position: relative; }
-.row { display: flex; justify-content: center; align-items: flex-end; flex-wrap: nowrap; }
+/* Container */
+.wrap { 
+  width: min(1100px, 96vw); 
+  margin: 1rem auto 2rem; 
+  position: relative;
+}
+
+/* Rules panel */
+.rules {
+  background: #1e1e1e;   /* dark background */
+  color: #f0f0f0;        /* light text for contrast */
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.rules h2 {
+  font-size: 1rem; margin: 0 0 0.25rem; font-weight: 700;
+}
+.rules ol {
+  margin: 0 0 0.25rem 1.1rem; padding: 0; line-height: 1.4;
+}
+.rules .status { margin: 0; font-size: 0.9rem; opacity: 0.85; }
+
+/* ✅ Flat, side-by-side single row (scrolls on small screens) */
+.row { 
+  display: flex; 
+  align-items: center;
+  gap: clamp(10px, 2vw, 18px);
+  overflow-x: auto;
+  padding: 0.75rem 0.25rem;
+  scroll-snap-type: x proximity;
+}
 .row.blocked { pointer-events: none; }
 
+/* Head button */
 .head {
   position: relative;
-  width: clamp(60px, 9vw, 130px);
+  width: clamp(56px, 9vw, 110px);
   aspect-ratio: 1/1;
-  transform: translateY(var(--y, 0px)) scale(var(--s, 1));
-  z-index: var(--z, 1);
   background: transparent;
   border: none;
   cursor: pointer;
   padding: 0;
+  scroll-snap-align: start;
 }
-.head-img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 6px 16px rgba(0,0,0,.35)); }
+
+/* Number badge */
+.badge {
+  position: absolute;
+  top: -6px; left: -6px;
+  min-width: 22px; height: 22px;
+  padding: 0 6px;
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 700;
+  color: #222;
+  background: #ffd666;
+  border: 1px solid #e8b339;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+  z-index: 2;
+}
+
+/* Image + subtle visual polish */
+.head-img { 
+  width: 100%; height: 100%; object-fit: contain; display: block; 
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,.18));
+}
 .imgwrap {
   display: block; width: 100%; height: 100%;
   -webkit-clip-path: ellipse(46% 48% at 50% 47%);
           clip-path: ellipse(46% 48% at 50% 47%);
   position: relative;
 }
-.imgwrap.selected::after {
+
+/* Optional highlight for special (5th) */
+.head.special .imgwrap.selected::after {
   content: "";
   position: absolute; inset: -6%;
   border-radius: 50%;
-  border: 2px dashed rgba(255, 223, 0, .85);
-  box-shadow: 0 0 20px rgba(255, 215, 0, .35);
+  border: 2px dashed rgba(255, 223, 0, .9);
+  box-shadow: 0 0 12px rgba(255, 215, 0, .35);
   pointer-events: none;
   -webkit-clip-path: ellipse(52% 54% at 50% 50%);
           clip-path: ellipse(52% 54% at 50% 50%);
 }
-.head:hover:not(.disabled):not(.gone):not(.burning) .imgwrap {
-  filter: drop-shadow(0 10px 22px rgba(255,215,0,.35));
-  transform: translateY(-4px) scale(1.02);
+
+/* Hover lift on larger screens */
+@media (hover:hover) and (pointer:fine) {
+  .head:hover:not(.disabled):not(.gone):not(.burning) .imgwrap {
+    transform: translateY(-2px);
+  }
 }
+
+/* Burn effect */
 .head.burning::after,
 .head.burning .flame {
   content: "";
@@ -213,12 +258,15 @@ function styleFor(h: HeadObj) {
 }
 @keyframes flame {
   0%   { transform: translateY(-8%) scale(1);   opacity: .9; }
-  50%  { transform: translateY(-14%) scale(1.06); opacity: .7; }
+  50%  { transform: translateY(-12%) scale(1.04); opacity: .75; }
   100% { transform: translateY(-8%) scale(1);   opacity: .9; }
 }
+
+/* States */
 .head.gone { visibility: hidden; }
 .head.disabled { cursor: not-allowed; }
 
+/* Greeting overlay */
 .greeting {
   position: fixed; inset: 0;
   background: rgba(0,0,0,.86);
@@ -231,13 +279,17 @@ function styleFor(h: HeadObj) {
   box-shadow: 0 20px 60px rgba(0,0,0,0.6);
 }
 
-/* ✅ Mobile responsive */
+/* ✅ Mobile sizes */
 @media (max-width: 768px) {
-  .wrap { width: 100%; }
-  .head { width: clamp(50px, 16vw, 90px); }
+  .wrap { width: 100%; padding: 0 0.25rem; }
+  .row { gap: 10px; }
+  .head { width: clamp(52px, 14vw, 88px); }
 }
 @media (max-width: 480px) {
-  .head { width: clamp(42px, 18vw, 80px); }
+  .head { width: clamp(48px, 16vw, 76px); }
   .greeting img { max-width: 95vw; max-height: 80vh; }
+}
+@media (max-width: 360px) {
+  .head { width: clamp(44px, 18vw, 68px); }
 }
 </style>
