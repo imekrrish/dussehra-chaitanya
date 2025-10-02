@@ -1,5 +1,17 @@
 <template>
   <div class="wrap">
+    <!-- Top bar -->
+    <header class="topbar" aria-label="Player and controls">
+      <div class="left">
+        <strong v-if="playerName">{{ playerName }}</strong>
+        <span v-else>Guest</span>
+        <span class="pill">Difficulty: {{ difficulty.toUpperCase() }}</span>
+      </div>
+      <div class="right">
+        <button class="restart" @click="openStart(true)">Restart</button>
+      </div>
+    </header>
+
     <!-- Rules panel -->
     <section class="rules" aria-labelledby="rules-title">
       <h2 id="rules-title">Rules</h2>
@@ -13,7 +25,7 @@
       </p>
     </section>
 
-    <div class="row" :class="{ blocked: !!activeHead }" :inert="!!activeHead">
+    <div class="row" :class="{ blocked: !!activeHead || showingStart }" :inert="!!activeHead || showingStart">
       <button
         v-for="h in heads"
         :key="h.id"
@@ -45,7 +57,37 @@
     />
 
     <div v-if="showGreeting" class="greeting">
-      <img src="/src/assets/greeting.png" alt="Happy Dussehra" />
+  <div class="greeting-card">
+    <button class="close-btn" @click="showGreeting=false" aria-label="Close greeting">✕</button>
+    <img src="/src/assets/greeting.png" alt="Happy Dussehra" />
+  </div>
+</div>
+
+
+    <!-- Start overlay -->
+    <div v-if="showingStart" class="start-overlay" role="dialog" aria-modal="true" aria-labelledby="start-title">
+      <form class="start-card" @submit.prevent="startGame">
+        <h3 id="start-title">Start Game</h3>
+
+        <label class="field">
+          <span>Your name</span>
+          <input v-model="playerNameInput" type="text" minlength="1" maxlength="24" placeholder="Enter your name" required />
+        </label>
+
+        <fieldset class="field">
+          <legend>Difficulty</legend>
+          <div class="choices">
+            <label><input type="radio" value="easy" v-model="difficultyInput" /> Easy</label>
+            <label><input type="radio" value="medium" v-model="difficultyInput" /> Medium</label>
+            <label><input type="radio" value="hard" v-model="difficultyInput" /> Hard</label>
+          </div>
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" class="go">Play</button>
+          <button type="button" class="cancel" @click="cancelStart">Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
 </template>
@@ -65,32 +107,65 @@ interface HeadObj {
 
 const specialId = 5 // 🔒 5th Ravana unlocks only after others are gone
 
-// Questions + multiple valid answers
-const qa: Array<[string, string[]]> = [
-  ['Who killed Ravana in the Ramayana?', ['lord rama', 'shri ram', 'rama', 'ram']],
-  ['Which festival celebrates Lord Rama’s victory over Ravana?', ['dussehra', 'vijayadashami']],
-  ['What is the name of Lord Rama’s wife?', ['sita', 'mata sita', 'goddess sita']],
-  ['Which brother of Lord Rama fought bravely against Ravana?', ['lakshmana', 'laxman']],
-  ['Where was Sita held captive by Ravana?', ['lanka', 'sri lanka', 'srilanka']],
-  ['Which devotee of Lord Rama burned down Lanka with his tail?', ['hanuman', 'lord hanuman', 'anjaneya', 'maruti']],
-  ['Which brother of Ravana supported Lord Rama in the war?', ['vibhishana', 'vibhishan']],
-  ['Who among the vanaras built the bridge (Rama Setu) to Lanka?', ['nala']],
-  ['Who is the sage-poet who composed the Ramayana?', ['valmiki', 'maharishi valmiki', 'sage valmiki']],
-  ['What was the name of Lord Rama’s kingdom?', ['ayodhya']],
-];
+// ========= Question banks by difficulty =========
+type QAPair = [string, string[]]
 
-const heads = reactive<HeadObj[]>(
-  Array.from({ length: 10 }, (_, i) => {
-    const q = qa[i] ?? ['No question', []];
-    return {
-      id: i + 1,
-      name: `Head ${i + 1}`,
-      question: q[0],
-      answers: q[1],
-      state: 'intact' as HeadState,
-    }
-  })
-)
+const qaEasy: QAPair[] = [
+  ['Who killed Ravana in the Ramayana?', ['lord rama','shri ram','rama','ram','raam','ramji']],
+  ['Which festival celebrates Lord Rama’s victory over Ravana?', ['dussehra','vijayadashami','dasara','dussera','dushehra']],
+  ['What is the name of Lord Rama’s wife?', ['sita','mata sita','goddess sita','seetha']],
+  ['Which brother of Lord Rama fought bravely against Ravana?', ['lakshmana','laxman','lakshman','lakshamn']],
+  ['Where was Sita held captive by Ravana?', ['lanka','sri lanka','srilanka','srilankaa']],
+  ['Which devotee of Lord Rama burned down Lanka with his tail?', ['hanuman','lord hanuman','anjaneya','maruti','hanumaan','hanman']],
+  ['Which brother of Ravana supported Lord Rama in the war?', ['vibhishana','vibhishan','bibhishan','bibishana']],
+  ['Who among the vanaras built the bridge (Rama Setu) to Lanka?', ['nala','naala']],
+  ['Who is the sage-poet who composed the Ramayana?', ['valmiki','maharishi valmiki','sage valmiki','vaalmiki']],
+  ['What was the name of Lord Rama’s kingdom?', ['ayodhya','ayodya','ayodhyya']],
+]
+
+const qaMedium: QAPair[] = [
+  ['What is another name for Ravana meaning "ten-headed"?', ['dashanana','dashanan','dashananaya','daśānana']],
+  ['Who was Lakshmana’s wife?', ['urmila','urmila devi']],
+  ['Name the river where Lord Rama met Shabari.', ['pampa','pampa river']],
+  ['What gift did Sita give Hanuman to prove he met her?', ['choodamani','chudamani','jewel','hair ornament']],
+  ['What was the forest called where Rama spent most of his exile?', ['dandaka','dandakaranya']],
+  ['Who was the vulture king who tried to save Sita?', ['jatayu','jaatayu']],
+  ['What was the name of the golden deer’s real form?', ['maricha','mareecha','maricha rakshasa']],
+  ['Who was Ravana’s mother?', ['kaikasi','keikasi']],
+  ['Who crowned Vibhishana as king of Lanka?', ['rama','lord rama','shri ram','ram']],
+  ['What fruit did Shabari offer Rama?', ['berries','ber','jujube','ber fruit']],
+]
+
+const qaHard: QAPair[] = [
+  ['What was the name of Ravana’s sword?', ['chandrahasa','chandrahas']],
+  ['Who was the architect of Lanka’s city and palaces?', ['mayasura','maya']],
+  ['Which sage gave Ravana the Atmalinga to carry (later worshipped at Gokarna)?', ['shiva','lord shiva','mahadeva']], // trick: he received from Shiva via penance
+  ['Name the mountain carried by Hanuman for Sanjeevani.', ['dronagiri','gandhamadana','gandhamadan']],
+  ['Who killed Kumbhakarna?', ['lakshmana','laxman']],
+  ['Which celestial weapon finally slew Ravana?', ['brahmastra','brahmastra of rama']],
+  ['Name the commander-in-chief of the vanara army.', ['sugriva','neela','nila','nala']], // accept common answers
+  ['Who performed the Ashwamedha Yajna in Rama’s reign?', ['rama','lord rama','shri ram','ram']],
+  ['Who was the mother of Lava and Kusha’s teacher?', ['valmiki','sage valmiki','maharishi valmiki']], // they were taught by Valmiki
+  ['What is the name of Ravana’s son who was a mighty warrior (not Indrajit)?', ['akshaya kumara','akshaya','akshayakumara','akshakumara']],
+]
+
+// Pick the correct bank
+const banks: Record<'easy'|'medium'|'hard', QAPair[]> = {
+  easy: qaEasy,
+  medium: qaMedium,
+  hard: qaHard,
+}
+
+// ========= Reactive state =========
+const difficulty = ref<'easy'|'medium'|'hard'>('easy')
+const playerName = ref<string>('')
+
+const showingStart = ref(true)
+const difficultyInput = ref<'easy'|'medium'|'hard'>(difficulty.value)
+const playerNameInput = ref<string>('')
+
+// heads collection
+const heads = reactive<HeadObj[]>([])
 
 const activeHead = ref<HeadObj | null>(null)
 const showGreeting = ref(false)
@@ -104,6 +179,22 @@ const othersAllGone = computed(() =>
 const remainingExceptSpecial = computed(() =>
   heads.filter(h => h.id !== specialId && h.state !== 'gone').length
 )
+
+function buildHeads(from: QAPair[]) {
+  // Ensure exactly 10 items
+  const list = from.slice(0, 10)
+  heads.splice(0, heads.length) // clear
+  for (let i = 0; i < 10; i++) {
+    const q = list[i] ?? ['No question', []]
+    heads.push({
+      id: i + 1,
+      name: `Head ${i + 1}`,
+      question: q[0],
+      answers: q[1],
+      state: 'intact',
+    })
+  }
+}
 
 function isDisabled(h: HeadObj) {
   // Special 5th head: only enabled when all others are gone and it's still intact
@@ -145,6 +236,37 @@ async function checkAnswer(answer: string) {
     showGreeting.value = true
   }
 }
+
+// ======== Start flow ========
+function openStart(isRestart = false) {
+  // if restarting, also clear greeting and modal
+  if (isRestart) {
+    showGreeting.value = false
+    activeHead.value = null
+  }
+  // preload inputs
+  difficultyInput.value = difficulty.value
+  playerNameInput.value = playerName.value || ''
+  showingStart.value = true
+}
+
+function cancelStart() {
+  // If never started, don’t allow closing
+  if (!playerName.value) return
+  showingStart.value = false
+}
+
+function startGame() {
+  playerName.value = playerNameInput.value.trim() || 'Player'
+  difficulty.value = difficultyInput.value
+  buildHeads(banks[difficulty.value])
+  showGreeting.value = false
+  activeHead.value = null
+  showingStart.value = false
+}
+
+// Build once (default)
+buildHeads(banks[difficulty.value])
 </script>
 
 <style scoped>
@@ -159,6 +281,25 @@ html, body { background: #000; margin: 0; }
   margin: 1rem auto 2rem; 
   position: relative;
   background: #000; /* keep wrap black */
+}
+
+/* Top bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .5rem;
+  background: #0f0f0f; color: #eaeaea;
+  border: 1px solid #242424; border-radius: 10px;
+  padding: .6rem .9rem; margin-bottom: .75rem;
+  font-size: .95rem;
+}
+.topbar .left { display: flex; align-items: center; gap: .6rem; }
+.pill {
+  font-size: .8rem; padding: .2rem .5rem; border-radius: 999px;
+  border: 1px solid #313131; background: #1a1a1a; opacity: .9;
+}
+.restart {
+  background: #1f1f1f; border: 1px solid #343434; color: #eee;
+  border-radius: 8px; padding: .35rem .7rem; cursor: pointer;
 }
 
 /* Rules panel */
@@ -279,6 +420,31 @@ html, body { background: #000; margin: 0; }
   display: grid; place-items: center;
   z-index: 2000;
 }
+.greeting-card {
+  position: relative;
+  display: inline-block;
+}
+
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.2s;
+}
+.close-btn:hover {
+  background: rgba(0,0,0,0.8);
+}
+
 .greeting img {
   opacity: 0;
   transform: scale(0.92) translateY(8px);
@@ -287,49 +453,50 @@ html, body { background: #000; margin: 0; }
   max-width: 90vw; max-height: 85vh;
   border-radius: 12px;
 }
-@keyframes pop-in {
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
+@keyframes pop-in { to { opacity: 1; transform: scale(1) translateY(0); } }
 @keyframes glow {
   from { box-shadow: 0 18px 50px rgba(255,215,0,0.20); }
   to   { box-shadow: 0 22px 68px rgba(255,215,0,0.35); }
 }
 
-/* 📱 Mobile: 4 heads top, 5th centered middle, 5 heads bottom */
+/* 📱 Mobile: grid layout with 5th centered */
 @media (max-width: 480px) {
   .row {
     display: grid;
-    grid-template-columns: repeat(5, 1fr); /* 5 equal columns */
+    grid-template-columns: repeat(5, 1fr);
     gap: 6px;
     padding: 8px 10px;
     justify-items: center;
     align-items: center;
-    overflow: hidden;       /* no horizontal scroll */
-    background: #000;       /* keep full black */
+    overflow: hidden;
+    background: #000;
   }
-
-  /* Each cell is a square; head fills its grid cell */
-  .head {
-    width: 100%;
-    max-width: 72px;        /* optional safety cap */
-    aspect-ratio: 1 / 1;
-  }
-
-  /* Top row: heads 1–4 (columns 1–4), leave column 5 empty */
+  .head { width: 100%; max-width: 72px; aspect-ratio: 1 / 1; }
   .head:nth-child(-n+4) { grid-row: 1; }
-
-  /* Middle row: head 5 centered in column 3 */
   .head:nth-child(5) { grid-row: 2; grid-column: 3; }
-
-  /* Bottom row: heads 6–10 auto-flow into row 3, columns 1–5 */
   .head:nth-child(n+6) { grid-row: 3; }
-
-  /* Compact badge for tight grid */
-  .badge {
-    min-width: 20px; height: 20px; font-size: 11px;
-    top: -4px; left: -4px;
-  }
+  .badge { min-width: 20px; height: 20px; font-size: 11px; top: -4px; left: -4px; }
 }
 
-
+/* Start overlay */
+.start-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.85);
+  display: grid; place-items: center; z-index: 3000;
+}
+.start-card {
+  width: min(560px, 92vw);
+  background: #121212; color: #eee;
+  border: 1px solid #2a2a2a; border-radius: 14px;
+  padding: 1rem; box-shadow: 0 10px 50px rgba(0,0,0,.45);
+}
+.start-card h3 { margin: 0 0 .8rem; }
+.field { display: grid; gap: .35rem; margin-bottom: .85rem; }
+.field input[type="text"] {
+  background: #1a1a1a; color: #eee; border: 1px solid #333; border-radius: 8px;
+  padding: .55rem .6rem; outline: none;
+}
+.choices { display: flex; gap: 1rem; }
+.actions { display: flex; gap: .6rem; justify-content: flex-end; }
+.go { background: #ffd666; color: #222; border: 0; border-radius: 8px; padding: .5rem .9rem; font-weight: 700; cursor: pointer; }
+.cancel { background: #242424; color: #eee; border: 1px solid #3a3a3a; border-radius: 8px; padding: .5rem .9rem; cursor: pointer; }
 </style>
