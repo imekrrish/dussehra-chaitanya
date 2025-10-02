@@ -1,6 +1,7 @@
 <template>
   <main class="app">
     <h1>Dussehra — Burn Ravana's Heads</h1>
+    <h2>made by ImeKrrish</h2>
     <Ravana />
   </main>
 </template>
