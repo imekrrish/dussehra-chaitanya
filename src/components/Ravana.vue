@@ -83,16 +83,19 @@ const qa: Array<[string, string[]]> = [
 
 
 const heads = reactive<HeadObj[]>(
-  Array.from({ length: 10 }, (_, i) => ({
-    id: i + 1,
-    name: `Head ${i + 1}`,
-    question: qa[i][0],
-    answers: qa[i][1],
-    state: 'intact' as HeadState,
-    translateY: layout[i].y,
-    scale: layout[i].s,
-    z: i === 5 ? 100 : 50 - Math.abs(5 - i),
-  }))
+  Array.from({ length: 10 }, (_, i) => {
+    const q = qa[i] ?? ['No question', []];
+    return {
+      id: i + 1,
+      name: `Head ${i + 1}`,
+      question: q[0],
+      answers: q[1],
+      state: 'intact' as HeadState,
+      translateY: layout[i]?.y ?? 0,
+      scale: layout[i]?.s ?? 1,
+      z: i === 5 ? 100 : 50 - Math.abs(5 - i),
+    }
+  })
 )
 
 const activeHead = ref<HeadObj | null>(null)
@@ -115,17 +118,18 @@ function onClickHead(h: HeadObj) {
 function closeModal() { activeHead.value = null }
 
 // Normalize input: lowercase, trim, remove punctuation/spaces
+// Normalize input: lowercase, trim, strip spaces/punct
 function normalize(str: string) {
   return str.toLowerCase().trim().replace(/[^a-z0-9]/g, '')
 }
 
 async function checkAnswer(answer: string) {
-  // take a snapshot BEFORE touching activeHead
-  const current = activeHead.value
-  if (!current) return
+  // capture once and narrow
+  const h = activeHead.value as HeadObj | null
+  if (h === null) return
 
   const userAns = normalize(answer)
-  const ok = current.answers.some(a => normalize(a) === userAns)
+  const ok = (h.answers ?? []).some(a => normalize(a) === userAns)
   if (!ok) {
     alert('Wrong answer — try again!')
     return
@@ -134,15 +138,16 @@ async function checkAnswer(answer: string) {
   // close modal immediately
   activeHead.value = null
 
-  // burn → gone sequence on the captured head
-  current.state = 'burning'
+  // burn → gone using the captured, non-null head
+  h.state = 'burning'
   await new Promise(r => setTimeout(r, 1100))
-  current.state = 'gone'
+  h.state = 'gone'
 
-  if (heads.every(h => h.state === 'gone')) {
+  if (heads.every(x => x.state === 'gone')) {
     showGreeting.value = true
   }
 }
+
 
 
 function styleFor(h: HeadObj) {
